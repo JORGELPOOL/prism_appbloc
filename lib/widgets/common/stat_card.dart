@@ -20,7 +20,7 @@ class StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return PrismCard(
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(20),
       onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -28,7 +28,7 @@ class StatCard extends StatelessWidget {
         children: [
           Text(
             value,
-            style: AppTextStyles.statMedium.copyWith(fontSize: 40, fontWeight: FontWeight.w800, color: valueColor),
+            style: AppTextStyles.statMedium.copyWith(fontSize: 36, fontWeight: FontWeight.w800, color: valueColor),
           ),
           const SizedBox(height: 8),
           Text(label.toUpperCase(), style: AppTextStyles.dataLabel),

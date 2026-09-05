@@ -1,68 +1,73 @@
-# PRISM — Admin Login + Control Room + Sidebar Profile (Phase 1 slice)
+# PRISM — Admin Portal (Phase 1 slice)
 
-This is a self-contained slice of the PRISM Flutter frontend covering the
-three pieces requested for starters:
-
-1. **Admin Login** (`screens/auth/admin_login_screen.dart`) — Auth Screen 4.
-2. **Control Room Dashboard** (`screens/admin/dashboard/admin_dashboard_screen.dart`) — Admin Screen 1.
-3. **Admin profile widget** (`_AdminProfileFooter` in `widgets/common/prism_sidebar.dart`) — avatar/initials, name, logout icon pinned to the bottom of the sidebar.
-
-Built with **BLoC** per the tech lead's spec — no Riverpod anywhere.
+Built with **BLoC** for the Dashboard/Login state, **go_router** for
+navigation, and a shared `MockData` class for everything else — no
+Riverpod anywhere.
 
 ## Run it
 
 ```bash
 flutter pub get
-flutter run -d chrome   # or any device
+flutter run -d chrome
 ```
 
-Login with any email containing `@` and a password of 6+ characters —
-`MockAuthRepository` accepts anything that looks valid. This lets you
-demo the full flow (login → Control Room → logout) before Stone's real
-`/auth/admin/login` and `/admin/dashboard` endpoints exist.
+Login with any email containing `@` and a password of 6+ characters.
 
-## What's real vs. mocked
+## Screens
 
-- **Real:** theme tokens (colours, type, spacing), BLoC wiring, widget
-  library (`PrismButton`, `PrismCard`, `PrismInput`, `PrismBadge`,
-  `PrismLabel`, `PrismSidebar`, `StatCard`, `PrismLoader`, `PrismError`),
-  responsive shell (sidebar on desktop, bottom nav on mobile), all screen
-  layouts and copy per spec.
-- **Mocked:** `MockAuthRepository` and `MockAdminRepository` return
-  in-memory data instead of hitting Supabase/Dio. Swap the repository
-  implementation passed into `AuthBloc`/`AdminDashboardBloc` in `app.dart`
-  and `admin_dashboard_screen.dart` — nothing else needs to change.
+| Screen | File | Route |
+|---|---|---|
+| Admin Login | `screens/auth/admin_login_screen.dart` | `/login` |
+| Control Room Dashboard | `screens/admin/dashboard/admin_dashboard_screen.dart` | `/admin` |
+| Clients | `screens/admin/clients/admin_clients_screen.dart` | `/admin/clients` |
+| Clipper Approvals | `screens/admin/clippers/clipper_approvals_screen.dart` | `/admin/clippers` |
+| Clip Review | `screens/admin/clips/clip_review_screen.dart` | `/admin/clips` |
+| Campaigns | `screens/admin/campaigns/campaign_builder_screen.dart` | `/admin/campaigns` |
+| Messages | `screens/admin/messages/admin_messages_screen.dart` | `/admin/messages` |
+| Analytics / Financials | placeholder in `admin_shell.dart` | `/admin/analytics`, `/admin/financials` |
 
-## Folder structure
+## Navigation
 
-Matches the master doc's `lib/` layout exactly (just the subset needed
-for this slice):
+`app.dart` owns a single `AuthBloc` and a `GoRouter` built around it.
+The router's `redirect` reads `AuthBloc.state` on every navigation
+attempt and bounces unauthenticated users to `/login`, and logged-in
+users away from `/login` to `/admin` — no manual `context.go` calls
+scattered through screens for login/logout. `AdminShell` is the
+`ShellRoute` builder: it renders the sidebar (desktop) or bottom nav
+(mobile) around whatever the matched nested route returns, and derives
+the selected nav item from the current location instead of local state.
 
-```
-lib/
-  core/theme/           app_colors, app_text_styles, app_spacing, app_theme
-  models/                admin_model, admin_dashboard_model
-  repositories/          auth_repository, admin_repository (+ mocks)
-  blocs/
-    auth/                auth_bloc / auth_event / auth_state
-    admin/dashboard/      admin_dashboard_bloc / event / state
-  screens/
-    auth/                admin_login_screen
-    admin/               admin_shell, dashboard/admin_dashboard_screen
-  widgets/common/        prism_button, prism_card, prism_input, prism_badge
-                          (+PrismLabel), prism_sidebar, stat_card,
-                          prism_loader, prism_error
-```
+## Data
 
-## Not in this slice (next steps per the build order)
+- **Real (BLoC):** Admin Login (`AuthBloc`) and the Control Room
+  Dashboard (`AdminDashboardBloc`) — both backed by mock repositories
+  (`MockAuthRepository`, `MockAdminRepository`) that are drop-in
+  replaceable once Stone's endpoints exist.
+- **Mock (static):** the 5 new screens read directly from
+  `lib/core/mock/mock_data.dart` — one file, all dummy data. Swap
+  individual lists for repository calls once those endpoints exist;
+  screen code won't need to change shape since it already reads
+  `Map<String, dynamic>`, matching what JSON API responses look like.
 
-- `go_router` with role-based redirect (`app.dart` currently gates on
-  `AuthBloc` state directly with a small `_AuthGate` widget — swap this
-  for the router once Client/Clipper auth screens exist).
-- Every other admin nav destination (Clients, Clippers, Clip Review,
-  Campaigns, Messages, Analytics, Financials) — `AdminShell` renders a
-  placeholder for these so the sidebar/bottom-nav is fully navigable
-  today, but each screen + its own BLoC is a separate build step.
+## Global fixes applied this pass
+
+1. **Cyan** — confirmed `0xFF00D4FF` everywhere (already correct, no
+   `Colors.cyan` or `0xFF00FFFF` anywhere in the project).
+2. **Stat cards** — number down to 36px, padding down to 20px.
+3. **Sidebar badges** — compact rounded-rect pills, max 20px wide, 9px
+   font, tucked directly next to the label instead of floating at the
+   panel edge.
+4. **Dashboard stat row** — confirmed single `Row` + `Expanded` on
+   desktop (already the case; not a grid).
+
+## Not in this slice
+
+- Wiring the mobile bottom nav's overflow items (Analytics, Financials,
+  and the admin profile/logout action aren't reachable from the bottom
+  nav yet — desktop sidebar has all of it).
+- Real Approve/Reject/Send actions on Clipper Approvals, Clip Review,
+  Campaigns and Messages — buttons are present and styled per spec but
+  not yet wired to repository calls (matches the "dummy data" scope of
+  this pass).
 - Client portal, Clipper portal — untouched, per "Admin first."
 
-One step, screen recording, approved, next step.

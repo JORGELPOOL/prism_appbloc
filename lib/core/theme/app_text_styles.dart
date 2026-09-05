@@ -54,6 +54,13 @@ class AppTextStyles {
     height: 1.6,
   );
 
+  static TextStyle bodyS = GoogleFonts.inter(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: AppColors.textSilver,
+    height: 1.5,
+  );
+
   // Nav and UI items
   static TextStyle navItem = GoogleFonts.inter(
     fontSize: 14,

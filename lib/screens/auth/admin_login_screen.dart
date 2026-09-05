@@ -10,10 +10,12 @@ import '../../widgets/common/prism_input.dart';
 /// Auth — Screen 4: Admin Login.
 /// Minimal. Serious. Internal only. No back arrow, no subtext about
 /// credentials being provided.
+///
+/// Doesn't navigate itself on success — the router's redirect reacts to
+/// AuthBloc's state and sends a logged-in admin sitting on /login over
+/// to /admin automatically.
 class AdminLoginScreen extends StatefulWidget {
-  final VoidCallback onLoginSuccess;
-
-  const AdminLoginScreen({super.key, required this.onLoginSuccess});
+  const AdminLoginScreen({super.key});
 
   @override
   State<AdminLoginScreen> createState() => _AdminLoginScreenState();
@@ -35,12 +37,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.bgPrimary,
-      body: BlocConsumer<AuthBloc, AuthState>(
-        listener: (context, state) {
-          if (state is AuthSuccess) {
-            widget.onLoginSuccess();
-          }
-        },
+      body: BlocBuilder<AuthBloc, AuthState>(
         builder: (context, state) {
           final isLoading = state is AuthLoading;
           final errorMessage = state is AuthFailure ? state.message : null;

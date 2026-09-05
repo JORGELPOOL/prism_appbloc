@@ -1,54 +1,80 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../blocs/auth/auth_bloc.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_text_styles.dart';
-import '../../models/admin_model.dart';
 import '../../widgets/common/prism_sidebar.dart';
-import 'dashboard/admin_dashboard_screen.dart';
+
+class AdminNavDestination {
+  final String label;
+  final IconData icon;
+  final String path;
+  final int? badgeCount;
+  final bool showDot;
+
+  const AdminNavDestination({
+    required this.label,
+    required this.icon,
+    required this.path,
+    this.badgeCount,
+    this.showDot = false,
+  });
+}
+
+/// The full nav map, in sidebar order. Shared between the sidebar,
+/// the mobile bottom nav, and route registration in app.dart.
+const List<AdminNavDestination> adminNavDestinations = [
+  AdminNavDestination(label: 'Dashboard', icon: Icons.grid_view_rounded, path: '/admin'),
+  AdminNavDestination(label: 'Clients', icon: Icons.apartment_rounded, path: '/admin/clients'),
+  AdminNavDestination(label: 'Clippers', icon: Icons.person_rounded, path: '/admin/clippers', badgeCount: 4),
+  AdminNavDestination(label: 'Clip Review', icon: Icons.movie_rounded, path: '/admin/clips', badgeCount: 3),
+  AdminNavDestination(label: 'Campaigns', icon: Icons.campaign_rounded, path: '/admin/campaigns'),
+  AdminNavDestination(label: 'Messages', icon: Icons.chat_bubble_rounded, path: '/admin/messages', showDot: true),
+  AdminNavDestination(label: 'Analytics', icon: Icons.bar_chart_rounded, path: '/admin/analytics'),
+  AdminNavDestination(label: 'Financials', icon: Icons.currency_rupee_rounded, path: '/admin/financials'),
+];
 
 /// Wraps every admin screen with the sidebar (desktop) / bottom nav
 /// (mobile) and hosts the admin profile widget (avatar, name, logout).
-///
-/// For now this shell only wires up the Control Room dashboard — the
-/// other nav destinations (Clients, Clippers, Clip Review, ...) are
-/// separate build steps per the roadmap and just show a placeholder.
-class AdminShell extends StatefulWidget {
-  final AdminModel admin;
-  final VoidCallback onLoggedOut;
+/// Used as the builder for go_router's admin ShellRoute — [child] is
+/// whatever the matched nested route renders.
+class AdminShell extends StatelessWidget {
+  final String location;
+  final Widget child;
 
-  const AdminShell({super.key, required this.admin, required this.onLoggedOut});
+  const AdminShell({super.key, required this.location, required this.child});
 
-  @override
-  State<AdminShell> createState() => _AdminShellState();
-}
+  int get _selectedIndex {
+    // Exact match first (dashboard root), then prefix match for nested paths.
+    final exact = adminNavDestinations.indexWhere((d) => d.path == location);
+    if (exact != -1) return exact;
+    final prefix = adminNavDestinations.indexWhere((d) => d.path != '/admin' && location.startsWith(d.path));
+    return prefix == -1 ? 0 : prefix;
+  }
 
-class _AdminShellState extends State<AdminShell> {
-  int _selectedIndex = 0;
-
-  static const _navItems = [
-    SidebarNavItem(label: 'Dashboard', icon: Icons.grid_view_rounded),
-    SidebarNavItem(label: 'Clients', icon: Icons.apartment_rounded),
-    SidebarNavItem(label: 'Clippers', icon: Icons.person_rounded, badgeCount: 4),
-    SidebarNavItem(label: 'Clip Review', icon: Icons.movie_rounded, badgeCount: 3),
-    SidebarNavItem(label: 'Campaigns', icon: Icons.campaign_rounded),
-    SidebarNavItem(label: 'Messages', icon: Icons.chat_bubble_rounded, showDot: true),
-    SidebarNavItem(label: 'Analytics', icon: Icons.bar_chart_rounded),
-    SidebarNavItem(label: 'Financials', icon: Icons.currency_rupee_rounded),
-  ];
-
-  void _handleLogout() {
+  void _handleLogout(BuildContext context) {
     context.read<AuthBloc>().add(const AdminLogoutRequested());
-    widget.onLoggedOut();
+    context.go('/login');
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = context.watch<AuthBloc>().state;
+    final admin = authState is AuthSuccess ? authState.admin : null;
+
+    // Shouldn't happen in practice — the router redirect keeps unauthenticated
+    // users off /admin routes — but guard anyway rather than crash on a null admin.
+    if (admin == null) {
+      return const Scaffold(backgroundColor: AppColors.bgPrimary, body: SizedBox.shrink());
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < AppSpacing.mobileBreakpoint;
+        final selectedIndex = _selectedIndex;
 
         return Scaffold(
           backgroundColor: AppColors.bgPrimary,
@@ -56,48 +82,41 @@ class _AdminShellState extends State<AdminShell> {
             children: [
               if (!isMobile)
                 PrismSidebar(
-                  items: _navItems,
-                  selectedIndex: _selectedIndex,
-                  onSelect: (i) => setState(() => _selectedIndex = i),
-                  admin: widget.admin,
-                  onLogout: _handleLogout,
+                  items: adminNavDestinations
+                      .map((d) => SidebarNavItem(label: d.label, icon: d.icon, badgeCount: d.badgeCount, showDot: d.showDot))
+                      .toList(),
+                  selectedIndex: selectedIndex,
+                  onSelect: (i) => context.go(adminNavDestinations[i].path),
+                  admin: admin,
+                  onLogout: () => _handleLogout(context),
                 ),
-              Expanded(child: _buildContent()),
+              Expanded(child: child),
             ],
           ),
-          bottomNavigationBar: isMobile ? _MobileBottomNav(
-            items: _navItems,
-            selectedIndex: _selectedIndex,
-            onSelect: (i) => setState(() => _selectedIndex = i),
-          ) : null,
+          bottomNavigationBar: isMobile
+              ? _MobileBottomNav(
+                  selectedIndex: selectedIndex,
+                  onSelect: (i) => context.go(adminNavDestinations[i].path),
+                )
+              : null,
         );
       },
     );
   }
-
-  Widget _buildContent() {
-    switch (_selectedIndex) {
-      case 0:
-        return const AdminDashboardScreen();
-      default:
-        return _PlaceholderScreen(title: _navItems[_selectedIndex].label);
-    }
-  }
 }
 
-/// Bottom nav shown on narrow/mobile layouts. Shows the first 5 items
-/// plus an overflow "More" entry (which surfaces the rest, including the
-/// admin profile / logout action, since there's no sidebar footer here).
+/// Bottom nav shown on narrow/mobile layouts. Shows the first 5 items;
+/// the rest (plus the admin profile / logout action) are reachable once
+/// a "More" sheet is added — out of scope for this pass.
 class _MobileBottomNav extends StatelessWidget {
-  final List<SidebarNavItem> items;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
 
-  const _MobileBottomNav({required this.items, required this.selectedIndex, required this.onSelect});
+  const _MobileBottomNav({required this.selectedIndex, required this.onSelect});
 
   @override
   Widget build(BuildContext context) {
-    final visible = items.take(5).toList();
+    final visible = adminNavDestinations.take(5).toList();
 
     return Container(
       decoration: const BoxDecoration(
@@ -112,7 +131,7 @@ class _MobileBottomNav extends StatelessWidget {
           children: [
             for (int i = 0; i < visible.length; i++)
               _MobileNavIcon(
-                item: visible[i],
+                destination: visible[i],
                 selected: i == selectedIndex,
                 onTap: () => onSelect(i),
               ),
@@ -124,11 +143,11 @@ class _MobileBottomNav extends StatelessWidget {
 }
 
 class _MobileNavIcon extends StatelessWidget {
-  final SidebarNavItem item;
+  final AdminNavDestination destination;
   final bool selected;
   final VoidCallback onTap;
 
-  const _MobileNavIcon({required this.item, required this.selected, required this.onTap});
+  const _MobileNavIcon({required this.destination, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -137,25 +156,20 @@ class _MobileNavIcon extends StatelessWidget {
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(item.icon, size: 22, color: color),
-                if (item.badgeCount != null && item.badgeCount! > 0)
-                  Positioned(
-                    right: -4,
-                    top: -4,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
-                    ),
-                  ),
-              ],
-            ),
+            Icon(destination.icon, size: 22, color: color),
+            if (destination.badgeCount != null && destination.badgeCount! > 0)
+              Positioned(
+                right: -4,
+                top: -4,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
+                ),
+              ),
           ],
         ),
       ),
@@ -163,16 +177,18 @@ class _MobileNavIcon extends StatelessWidget {
   }
 }
 
-class _PlaceholderScreen extends StatelessWidget {
+/// Placeholder for nav destinations that don't have a real screen yet
+/// (Analytics, Financials — separate build steps per the roadmap).
+class AdminPlaceholderScreen extends StatelessWidget {
   final String title;
-  const _PlaceholderScreen({required this.title});
+  const AdminPlaceholderScreen({super.key, required this.title});
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        '$title — build step not yet reached',
-        style: AppTextStyles.bodyM,
+    return Scaffold(
+      backgroundColor: AppColors.bgPrimary,
+      body: Center(
+        child: Text('$title — build step not yet reached', style: AppTextStyles.bodyM),
       ),
     );
   }

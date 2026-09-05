@@ -116,18 +116,25 @@ class _SidebarTile extends StatelessWidget {
           children: [
             Icon(item.icon, size: 18, color: color),
             const SizedBox(width: 14),
-            Expanded(
+            Flexible(
               child: Text(
                 item.label,
                 style: AppTextStyles.navItem.copyWith(color: selected ? AppColors.textWhite : AppColors.textSilver),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (item.badgeCount != null && item.badgeCount! > 0) _CountBadge(count: item.badgeCount!),
-            if (item.showDot) Container(
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(color: AppColors.cyan, shape: BoxShape.circle),
-            ),
+            if (item.badgeCount != null && item.badgeCount! > 0) ...[
+              const SizedBox(width: 8),
+              _CountBadge(count: item.badgeCount!),
+            ],
+            if (item.showDot) ...[
+              const SizedBox(width: 8),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(color: AppColors.cyan, shape: BoxShape.circle),
+              ),
+            ],
           ],
         ),
       ),
@@ -142,11 +149,17 @@ class _CountBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: const BoxDecoration(color: AppColors.error),
+      constraints: const BoxConstraints(minWidth: 16, maxWidth: 20),
+      height: 16,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.error,
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Text(
         '$count',
-        style: AppTextStyles.dataLabel.copyWith(color: AppColors.textWhite, fontSize: 10),
+        style: AppTextStyles.dataLabel.copyWith(color: AppColors.textWhite, fontSize: 9, height: 1),
       ),
     );
   }
